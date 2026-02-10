@@ -35,6 +35,10 @@ def find_implementation_range(lines):
 
 line_range = find_implementation_range(lines)
 
+# ------------------------------- #
+# Convention 2.X
+# ------------------------------- #
+
 # Convention 2.1: Checks for lines longer than 74 characters
 def line_length_check(lines, line_range):
 
@@ -86,7 +90,8 @@ def indentation_check(lines, line_range):
                   " has inconsistent indentation (" +
                   str(currIndent) + " leading spaces)\n")
         
-        # Will add code to recognize continuation lines
+        # Will add code to recognize continuation lines,
+        # just asks students to check for now
         if (abs(prevIndent - currIndent) > 2):
             print("Warning (2.2): Line " + str(i + 1) +
                   " may have inconsistent indentation (" +
@@ -111,10 +116,60 @@ def vertical_white_space_check(lines, line_range):
             white_space_num = white_space_num + 1
         else:
             if(white_space_num >= 2):
-                print("Warning (2.3): Lines " + str(i - white_space_num)
+                print("Warning (2.3): Lines " + str((i + 1) - white_space_num)
                       + "-" + str(i) + " have " + str(white_space_num)
                       + " vertical white spaces\n")
             white_space_num = 0
                 
 vertical_white_space_check(lines, line_range)
             
+# Convention 2.4: Horizontal White Space
+def horizontal_white_space_check(lines, line_range):
+
+    gate_keywords = ["and", "or", "nand", "nor", "xor", "xnor", "buf", "not"]
+    multi_ops     = ["==", "!=", "<=", ">="]
+    single_ops    = ["=", "+", "-", "*", "/"]
+
+    for i in range(line_range[0], line_range[1]):
+
+        line = lines[i].rstrip()
+
+        if line.strip() == "":
+            continue
+
+        if line.strip().startswith("//"):
+            continue
+
+        # Crammed operators
+
+        # First, check multi-character operators
+        for op in multi_ops:
+            if op in line and (" " + op + " ") not in line:
+                print("Warning (2.4): Line " + str(i + 1) +
+                      " has insufficient horizontal whitespace\n")
+                break
+        else:
+            # Check single-character operators.
+            for op in single_ops:
+                if op in line:
+                    if any(mop in line for mop in multi_ops):
+                        continue
+                    if (" " + op + " ") not in line:
+                        print("Warning (2.4): Line " + str(i + 1) +
+                              " has insufficient horizontal whitespace\n")
+                        break
+
+        # Check for crammed gate wires
+        stripped = line.lstrip()
+        for gate in gate_keywords:
+            if stripped.startswith(gate + "(") or stripped.startswith(gate + " ("):
+                if "," in stripped and ", " not in stripped:
+                    print("Warning (2.4): Line " + str(i + 1) +
+                          " has crammed-together gate wires\n")
+                break
+
+horizontal_white_space_check(lines, line_range)
+
+# ------------------------------- #
+# Convention 3.X
+# ------------------------------- #
