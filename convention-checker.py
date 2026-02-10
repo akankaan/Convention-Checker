@@ -173,3 +173,77 @@ horizontal_white_space_check(lines, line_range)
 # ------------------------------- #
 # Convention 3.X
 # ------------------------------- #
+
+# Convention 3.1: Port and Wire Names
+def port_and_wire_name_check(lines):
+
+    starting_terms = ["wire", "input", "output", "logic"]
+
+    for i in range(0, len(lines)):
+        
+        line = lines[i].strip()
+
+        if line == "":
+            continue
+
+        if line.startswith("//"):
+            continue
+
+        # Check decleration lines
+        detected_starting_term = False
+
+        for s in starting_terms:
+            if line.startswith(s):
+                detected_starting_term = True
+                break
+
+        if not detected_starting_term:
+            continue
+
+        # Remove punctuation
+        line = line.replace(";", "")
+        line = line.replace(")", "")
+        line = line.replace("(", "")
+
+        # Remove bus widths
+        while "[" in line and "]" in line:
+            left  = line.find("[")
+            right = line.find("]")
+            if right > left:
+                line = line[:left] + " " + line[right + 1:]
+            else:
+                break
+        
+        for w in starting_terms:
+            line = line.replace(w, " ")
+
+        # Separate multiple names that are comma separated
+        line = line.replace(",", " ")
+        tokens = line.split()
+
+        for name in tokens:
+
+            # Skip empty name
+            if name == "":
+                continue
+
+            # Warn for uppercase letters
+            hasUpper = False
+            for ch in name:
+                if ch.isupper():
+                    hasUpper = True
+                    break
+            if hasUpper:
+                print("Warning (3.1): Line " + str(i + 1) +
+                      " uses non-snake-case name '" + name + "'\n")
+
+                continue
+
+            # Advisory: multiple words should be separated by underscores
+            if "_" not in name and len(name) > 8:
+                print("Warning (3.1): Line " + str(i + 1) +
+                      " signal name '" + name +
+                      "' may contain multiple words without underscores\n")
+
+port_and_wire_name_check(lines)
+

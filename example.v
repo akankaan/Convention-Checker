@@ -9,7 +9,7 @@
 
 module BinaryToSevenSegOpt_GL
 (
-  input  wire [3:0] in,
+  input  wire [3:0] iN,
   output wire [6:0] seg
 );
 
@@ -22,6 +22,8 @@ module BinaryToSevenSegOpt_GL
   not( not2, in[2] );
   not( not1, in[1] );
   not( not0, in[0] );
+
+  logic [15:0] alu_result, mulresulthere;
 
   wire seg6_0;
   wire seg6_1;
