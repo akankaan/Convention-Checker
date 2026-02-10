@@ -91,7 +91,7 @@ def indentation_check(lines, line_range):
                   str(currIndent) + " leading spaces)\n")
         
         # Will add code to recognize continuation lines,
-        # just asks students to check for now
+        # for now just asks students to check manually
         if (abs(prevIndent - currIndent) > 2):
             print("Warning (2.2): Line " + str(i + 1) +
                   " may have inconsistent indentation (" +
@@ -239,11 +239,74 @@ def port_and_wire_name_check(lines):
 
                 continue
 
-            # Advisory: multiple words should be separated by underscores
+            # Multiple words should be separated by underscores,
+            # uses a simple heuristic 
             if "_" not in name and len(name) > 8:
                 print("Warning (3.1): Line " + str(i + 1) +
                       " signal name '" + name +
                       "' may contain multiple words without underscores\n")
 
 port_and_wire_name_check(lines)
+
+# Convention 3.2: Module Names
+def module_name_check(lines):
+
+    for i in range(0, len(lines)):
+
+        line = lines[i].strip()
+
+        if not line.startswith("module"):
+            continue
+
+        # Remove "module" and punctuation
+        rest = line[len("module"):].strip()
+        rest = rest.replace("(", " ").replace(";", " ")
+
+        parts = rest.split()
+        if len(parts) == 0:
+            continue
+
+        module_name = parts[0]
+
+        name_parts = module_name.split("_")
+
+        # At most 2 underscores (ex: Mux2_8b_GL )
+        if len(name_parts) > 3:
+            print("Warning (3.2): Line " + str(i + 1) +
+                  " module name '" + module_name +
+                  "' has too many underscores\n")
+            continue
+
+        base = name_parts[0]
+
+        # Base should start with uppercase
+        if len(base) > 0 and not base[0].isupper():
+            print("Warning (3.2): Line " + str(i + 1) +
+                  " module name '" + module_name +
+                  "' should start with an uppercase letter\n")
+
+        # If there is a suffix, last part should be GL or RTL
+        if len(name_parts) >= 2:
+            last = name_parts[-1]
+            if last != "GL" and last != "RTL":
+                print("Warning (3.2): Line " + str(i + 1) +
+                      " module name '" + module_name +
+                      "' should end with suffix GL or RTL\n")
+
+        # If there are 3 parts, middle should look like a bitwidth (e.g., 8b, 32b, 2x16b)
+        if len(name_parts) == 3:
+            mid = name_parts[1]
+
+            hasDigit = False
+            for ch in mid:
+                if ch.isdigit():
+                    hasDigit = True
+                    break
+
+            if not (mid.endswith("b") and hasDigit):
+                print("Warning (3.2): Line " + str(i + 1) +
+                      " module name '" + module_name +
+                      "' has unexpected bitwidth suffix '" + mid + "'\n")
+
+module_name_check(lines)
 

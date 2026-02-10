@@ -7,7 +7,7 @@
 
 `include "ece2300/ece2300-misc.v"
 
-module BinaryToSevenSegOpt_GL
+module binaryto_SevenSegOpt_GL
 (
   input  wire [3:0] iN,
   output wire [6:0] seg
@@ -83,5 +83,3 @@ module BinaryToSevenSegOpt_GL
 endmodule
 
 `endif /* BINARY_TO_SEVEN_SEG_OPT_GL_V */
-
-
