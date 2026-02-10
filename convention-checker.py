@@ -42,8 +42,8 @@ def line_length_check(lines, line_range):
     for i in range(line_range[0], line_range[1]):
         if( len(lines[i]) > 74 ):
             longLineCount = longLineCount + 1
-            print("Warning: Line " + str(i + 1) + " is " + 
-                  str(len(lines[i])) + " characters long")
+            print("Warning (2.1): Line " + str(i + 1) + " is " + 
+                  str(len(lines[i])) + " characters long\n")
 
 line_length_check(lines, line_range)
 
@@ -55,7 +55,7 @@ def indentation_check(lines, line_range):
     for i in range(line_range[0], line_range[1]):
         if "\t" in lines[i]:
             tabCount = tabCount + 1
-            print("Warning: Line " + str(i) + " contains a tab")
+            print("Warning (2.2): Line " + str(i) + " contains a tab\n")
 
     # Checks for consistent indentation
     prevIndent = 0
@@ -77,25 +77,44 @@ def indentation_check(lines, line_range):
 
         # Must be indented at least one level inside module
         if currIndent < 2:
-            print("Warning: Line " + str(i + 1) +
-                  " is not indented inside module")
+            print("Warning (2.2): Line " + str(i + 1) +
+                  " is not indented inside module\n")
 
         # Indentation must be a multiple of 2 spaces
         if currIndent % 2 != 0:
-            print("Warning: Line " + str(i + 1) +
+            print("Warning (2.2): Line " + str(i + 1) +
                   " has inconsistent indentation (" +
-                  str(currIndent) + " leading spaces)")
+                  str(currIndent) + " leading spaces)\n")
         
         # Will add code to recognize continuation lines
-
         if (abs(prevIndent - currIndent) > 2):
-            print("Warning: Line " + str(i + 1) +
+            print("Warning (2.2): Line " + str(i + 1) +
                   " may have inconsistent indentation (" +
                   str(currIndent) + " leading spaces)")
             print("Check if line " + str(i + 1) +
-                  " is or comes after a continuation" )
+                  " is or comes after a continuation\n" )
             
         prevIndent = currIndent
 
 indentation_check(lines, line_range)
 
+# Convention 2.3: Vertical White Space
+def vertical_white_space_check(lines, line_range):
+
+    white_space_num = 0
+
+    for i in range(line_range[0], line_range[1]):
+
+        line = lines[i]
+
+        if line.strip() == "":
+            white_space_num = white_space_num + 1
+        else:
+            if(white_space_num >= 2):
+                print("Warning (2.3): Lines " + str(i - white_space_num)
+                      + "-" + str(i) + " have " + str(white_space_num)
+                      + " vertical white spaces\n")
+            white_space_num = 0
+                
+vertical_white_space_check(lines, line_range)
+            
