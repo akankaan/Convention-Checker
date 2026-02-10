@@ -11,15 +11,27 @@ with open("example.v", "r", encoding="utf-8") as f:
 def find_implementation_range(lines):
     start = 0
     end   = 0
-    
+
+    inModuleDeclaration = False
+
     for i in range(0, len(lines)):
-        if "endmodule" in lines[i]:
-            end = i + 1
-        elif "module"  in lines[i]:
+
+        line = lines[i]
+
+        # Detect start of module declaration
+        if "module" in line and not inModuleDeclaration:
+            inModuleDeclaration = True
+
+        # Find the ';' that ends the module declaration
+        if inModuleDeclaration and ";" in line:
             start = i + 1
-    
-    line_range = [start, end]
-    return line_range
+            inModuleDeclaration = False
+
+        # Detect endmodule
+        if "endmodule" in line:
+            end = i
+
+    return [start, end]
 
 line_range = find_implementation_range(lines)
 
@@ -30,7 +42,7 @@ def line_length_check(lines, line_range):
     for i in range(line_range[0], line_range[1]):
         if( len(lines[i]) > 74 ):
             longLineCount = longLineCount + 1
-            print("Warning: Line " + str(i) + " is " + 
+            print("Warning: Line " + str(i + 1) + " is " + 
                   str(len(lines[i])) + " characters long")
 
 line_length_check(lines, line_range)
@@ -46,8 +58,44 @@ def indentation_check(lines, line_range):
             print("Warning: Line " + str(i) + " contains a tab")
 
     # Checks for consistent indentation
+    prevIndent = 0
 
-    # FIXME
+    for i in range(line_range[0], line_range[1]):
+
+        line = lines[i]
+
+        if line.strip() == "":
+            continue
+
+        # Count leading spaces
+        currIndent = 0
+        for ch in line:
+            if ch == " ":
+                currIndent += 1
+            else:
+                break
+
+        # Must be indented at least one level inside module
+        if currIndent < 2:
+            print("Warning: Line " + str(i + 1) +
+                  " is not indented inside module")
+
+        # Indentation must be a multiple of 2 spaces
+        if currIndent % 2 != 0:
+            print("Warning: Line " + str(i + 1) +
+                  " has inconsistent indentation (" +
+                  str(currIndent) + " leading spaces)")
+        
+        # Will add code to recognize continuation lines
+
+        if (abs(prevIndent - currIndent) > 2):
+            print("Warning: Line " + str(i + 1) +
+                  " may have inconsistent indentation (" +
+                  str(currIndent) + " leading spaces)")
+            print("Check if line " + str(i + 1) +
+                  " is or comes after a continuation" )
+            
+        prevIndent = currIndent
 
 indentation_check(lines, line_range)
 

@@ -69,7 +69,8 @@ module BinaryToSevenSegOpt_GL
   wire seg0_0;
   wire seg0_1;
 
-  and( seg0_0, not3, not2,  not1, in[0] );
+  and(seg0_0, not3, 
+          not2,  not1, in[0] );
   and( seg0_1, not3, in[2], not1, not0  );
   or( seg[0], seg0_0, seg0_1 );
 
