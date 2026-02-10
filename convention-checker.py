@@ -90,8 +90,9 @@ def indentation_check(lines, line_range):
                   " has inconsistent indentation (" +
                   str(currIndent) + " leading spaces)\n")
         
-        # Will add code to recognize continuation lines,
-        # for now just asks students to check manually
+        # FIXME: Will add code to recognize continuation lines,
+        # for now just asks students to check manually because
+        # this works poorly for long lines separated into two
         if (abs(prevIndent - currIndent) > 2):
             print("Warning (2.2): Line " + str(i + 1) +
                   " may have inconsistent indentation (" +
@@ -124,6 +125,7 @@ def vertical_white_space_check(lines, line_range):
 vertical_white_space_check(lines, line_range)
             
 # Convention 2.4: Horizontal White Space
+# FIXME: Add check for visual column alignment
 def horizontal_white_space_check(lines, line_range):
 
     gate_keywords = ["and", "or", "nand", "nor", "xor", "xnor", "buf", "not"]
@@ -309,4 +311,86 @@ def module_name_check(lines):
                       "' has unexpected bitwidth suffix '" + mid + "'\n")
 
 module_name_check(lines)
+
+# Convention 3.3: Module Instance Names
+def module_instance_name_check(lines, line_range):
+
+    not_instantiation = ["module", "endmodule", "assign", "always", "always_comb", "always_ff",
+                         "wire", "logic", "input", "output", "parameter",
+                         "localparam", "begin", "end", "if",
+                          "else", "case", "endcase", "for", "while"]
+
+    for i in range(line_range[0], line_range[1]):
+
+        line = lines[i].strip()
+
+        if line == "":
+            continue
+
+        if line.startswith("//"):
+            continue
+
+        if line.startswith("`"):
+            continue
+
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+
+        type_name     = parts[0]
+        instance_name = parts[1]
+
+        # Skip basic non-module instantiation lines
+        skip = False
+        for w in not_instantiation:
+            if type_name == w:
+                skip = True
+                break
+        if skip:
+            continue
+
+        # Module names should have uppercases
+        if not type_name[0].isupper():
+            continue
+
+        # Confirm it's really an instantiation by looking for '(' on this line or next non-empty line
+        isInstantiation = False
+
+        # Look if same line has "(" after instance name
+        if "(" in line:
+            isInstantiation = True
+        else:
+            # Look if next non-empty line has "("
+            j = i + 1
+            while j < line_range[1]:
+                next_line = lines[j].strip()
+                if next_line == "" or next_line.startswith("//"):
+                    j = j + 1
+                    continue
+                if next_line.startswith("("):
+                    isInstantiation = True
+                break
+
+        if not isInstantiation:
+            continue
+
+        # Check for uppercase to check is snake case
+        for ch in instance_name:
+            if ch.isupper():
+                print("Warning (3.3): Line " + str(i + 1) +
+                      " module instance name '" + instance_name +
+                      "' should use snake_case (lowercase)\n")
+                break
+
+        # If the name is long and no underscores, it probably has multiple words 
+        if "_" not in instance_name and len(instance_name) > 8:
+            print("Warning (3.3): Line " + str(i + 1) +
+                  " module instance name '" + instance_name +
+                  "' may not be snake_case\n")
+            
+module_instance_name_check(lines, line_range)
+
+# ------------------------------- #
+# Convention 4.X
+# ------------------------------- #
 
