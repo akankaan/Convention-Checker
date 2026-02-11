@@ -125,10 +125,9 @@ def vertical_white_space_check(lines, line_range):
 vertical_white_space_check(lines, line_range)
             
 # Convention 2.4: Horizontal White Space
-# FIXME: Add check for visual column alignment
 def horizontal_white_space_check(lines, line_range):
 
-    gate_keywords = ["and", "or", "nand", "nor", "xor", "xnor", "buf", "not"]
+    gate_keywords = ["and", "or", "nand", "nor", "xor", "xnor", "not"]
     multi_ops     = ["==", "!=", "<=", ">="]
     single_ops    = ["=", "+", "-", "*", "/"]
 
@@ -394,3 +393,106 @@ module_instance_name_check(lines, line_range)
 # Convention 4.X
 # ------------------------------- #
 
+# Convention 4.1: GL Allowable Construct Check
+def gl_allowable_contruct_check(lines, line_range):
+    
+    # Not allowed
+    disallowed_tokens = [
+        "always", "always_comb", "always_ff", "if", "else",
+        "case", "endcase", "for", "while", "begin", "end", "logic"
+    ]
+
+    # Operators that suggest that assign does computation
+    disallowed_ops = ["+", "-", "*", "/", "%", "&", "|",
+                      "^", "~", "?", "{", "}", "<<", ">>"]
+
+    for i in range(line_range[0], line_range[1]):
+
+        raw = lines[i]
+        line = raw.strip()
+
+        if line == "":
+            continue
+
+        if line.startswith("//"):
+            continue
+
+        if line.startswith("`"):
+            continue
+
+        # Warn on disallowed keywords/tokens
+        for token in disallowed_tokens:
+            if token in line:
+                print("Warning (4.1): Line " + str(i + 1) +
+                      " has a disallowed GL construct ('" + token + "')\n")
+                break
+
+
+        # Assign is allowed only for connecting wires or assigning constants
+        if line.startswith("assign"):
+            for op in disallowed_ops:
+                if op in line:
+                    print("Warning (4.1): Line " + str(i + 1) +
+                          " assign is doing computation (operator '" + op + "')\n")
+                    break
+
+gl_allowable_contruct_check(lines, line_range)
+
+# Convention 4.2: GL Signal Decleration
+# FIXME: Need to add visual column alignment
+def gl_signal_decleration(lines, line_range):
+    
+    for i in range(line_range[0], line_range[1]):
+
+        raw = lines[i]
+        line = raw.strip()
+
+        if line == "":
+            continue
+
+        if line.startswith("//"):
+            continue
+
+        if line.startswith("`"):
+            continue
+        parts = line.split()
+
+        if len(parts) == 0:
+            continue
+
+        first_word = parts[0]
+
+        if first_word == "wire":
+
+            rest = line[len("wire"):].strip()
+
+            # If first non-space character is not '[' but we see '[' later,
+            # then it's an unpacked array like: wire x [8];
+            if "[" in rest:
+
+                # If "[" exists, it must come right after wire decleration
+                if not rest.startswith("["):
+                    print("Warning (4.2): Line " + str(i + 1) +
+                          " uses incorrect indexing")
+                else:
+                    # Check format [N:0]
+                    left  = rest.find("[")
+                    right = rest.find("]")
+
+                    if right > left:
+                        inside = rest[left+1:right].strip()
+
+                        if ":" not in inside:
+                            print("Warning (4.2): Line " + str(i + 1) +
+                                  " uses incorrect indexing [" + inside + "]\n")
+                        else:
+                            nums = inside.split(":")
+                            if len(nums) == 2:
+                                msb = nums[0].strip()
+                                lsb = nums[1].strip()
+
+                                if lsb != "0":
+                                    print("Warning (4.2): Line " + str(i + 1) +
+                                          " uses incorrect indexing [" + inside + "]\n")
+
+gl_signal_decleration(lines, line_range)
