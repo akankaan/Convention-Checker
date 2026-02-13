@@ -13,7 +13,7 @@ module BinaryToSevenSegOpt_GL
   output wire [6:0] seg
 );
 
-  //inverted values of each index
+  // Inverted values of each index
   wire not3;
   wire not2;
   wire not1;
@@ -23,11 +23,12 @@ module BinaryToSevenSegOpt_GL
   not( not1, in[1] );
   not( not0, in[0] );
 
-  wire seg6_0;
+  wire seg6_0; 
   wire seg6_1;
 
-  and( seg6_0, not3, not2,  not1         );
-  and( seg6_1, not3, in[2], in[1], in[0] );
+  and( seg6_0, not3, not2,  not1 );
+  and( seg6_1, not3, not2,  not1,
+               in[2], in[1], in[0] );
   or( seg[6], seg6_0, seg6_1 );
 
   wire seg5_0;
@@ -45,7 +46,7 @@ module BinaryToSevenSegOpt_GL
   wire seg4_1;
   wire seg4_2;
 
-  and( seg4_0, not3, in[0]        );
+  and( seg4_0, not3, in[0] );
   and( seg4_1, not2, not1,  in[0] );
   and( seg4_2, not3, in[2], not1  );
   or( seg[4], seg4_0, seg4_1, seg4_2 );
@@ -55,9 +56,9 @@ module BinaryToSevenSegOpt_GL
   wire seg3_2;
 
   and( seg3_0, not3, in[2], not1,  not0 );
-  and( seg3_1, not3, in[2], in[1], in[0]);
+  and( seg3_1, not3, in[2], in[1], in[0] );
   and( seg3_2, not2, not1,  in[0]       );
-  or(seg[3],seg3_0, seg3_1, seg3_2);
+  or( seg[3], seg3_0, seg3_1, seg3_2 );
 
   and( seg[2], not3, not2, in[1], not0 );
 
@@ -71,13 +72,19 @@ module BinaryToSevenSegOpt_GL
   wire seg0_0;
   wire seg0_1;
 
-  assign x == y;
-
+  // 0000
   and(seg0_0, not3, 
-      not2, not1, in[0] );
+      not2, not1, in[0]);
 
   and( seg0_1, not3, in[2], not1, not0  );
   or( seg[0], seg0_0, seg0_1 );
+
+  BinaryToBinCodedDec_GL binary_bin
+  (
+    .in    (4'b0000),
+    .tens  (tens_out),
+    .ones  (ones_out)
+  );
 
 endmodule
 
