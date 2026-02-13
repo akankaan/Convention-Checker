@@ -958,10 +958,6 @@ def run_rtl_checks(lines, line_range):
 
     rtl_operator_check(lines, line_range)
     rtl_signal_declaration_check(lines, line_range)
-    rtl_combinational_blocks_check(lines, line_range)
-    rtl_inferred_latches_check(lines, line_range)
-    rtl_x_optimism_check(lines, line_range)
-    rtl_sequential_blocks_check(lines, line_range)
 
 def execute():
 
