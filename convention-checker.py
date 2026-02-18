@@ -3,10 +3,23 @@
 # Date  : Feb 5, 2026
 
 import re
+import sys
 
-# Reads file
-with open("example.v", "r", encoding="utf-8") as f:
+from collections import defaultdict
+
+warning_counts = defaultdict(int)
+
+if len(sys.argv) != 2:
+    print("Usage: python checker.py <verilog_file.v>")
+    sys.exit(1)
+
+filename = sys.argv[1]
+
+with open(filename, "r", encoding="utf-8") as f:
     lines = f.readlines()
+    
+def strip_inline_comment(raw_line: str) -> str:
+    return raw_line.split("//", 1)[0].rstrip("\n")
 
 # Finds the line range where students write their code
 # based on "module" and "endmodule"
@@ -59,10 +72,11 @@ def line_length_check(lines, line_range):
 
     longLineCount = 0
     for i in range(line_range[0], line_range[1]):
-        if( len(lines[i]) > 74 ):
+        if( len(lines[i]) > 75 ):
             longLineCount = longLineCount + 1
             print("Warning (2.1): Line " + str(i + 1) + " is " + 
                   str(len(lines[i])) + " characters long\n")
+            warning_counts["2.1"] += 1
 
 # Convention 2.2: Indentation
 def indentation_check(lines, line_range):
@@ -73,6 +87,7 @@ def indentation_check(lines, line_range):
         if "\t" in lines[i]:
             tabCount = tabCount + 1
             print("Warning (2.2): Line " + str(i) + " contains a tab\n")
+            warning_counts["2.2"] += 1
 
     # Checks for consistent indentation
     prevIndent = 0
@@ -109,12 +124,14 @@ def indentation_check(lines, line_range):
         if currIndent < 2 and not isContinuationLine:
             print("Warning (2.2): Line " + str(i + 1) +
                   " is not indented inside module\n")
+            warning_counts["2.2"] += 1
 
         # Allow flexible alignment on continuation lines.
         if currIndent % 2 != 0 and not isContinuationLine:
             print("Warning (2.2): Line " + str(i + 1) +
                   " has inconsistent indentation (" +
                   str(currIndent) + " leading spaces)\n")
+            warning_counts["2.2"] += 1
 
         if (abs(prevIndent - currIndent) > 2) and not isContinuationLine and not prevWasContinuation:
             print("Warning (2.2): Line " + str(i + 1) +
@@ -122,6 +139,7 @@ def indentation_check(lines, line_range):
                   str(currIndent) + " leading spaces)")
             print("Check if line " + str(i + 1) +
                   " is or comes after a continuation\n" )
+            warning_counts["2.2"] += 1
             
         prevIndent = currIndent
         prevCodeLine = line.split("//")[0]
@@ -143,23 +161,30 @@ def vertical_white_space_check(lines, line_range):
                 print("Warning (2.3): Lines " + str((i + 1) - white_space_num)
                       + "-" + str(i) + " have " + str(white_space_num)
                       + " vertical white spaces\n")
+                warning_counts["2.3"] += 1
             white_space_num = 0
                 
 # Convention 2.4: Horizontal White Space
-def horizontal_white_space_check(lines, line_range):
+def horizontal_white_space_check(lines, line_range, filename):
 
     gate_keywords = ["and", "or", "nand", "nor", "xor", "xnor", "not"]
     multi_ops     = ["==", "!=", "<=", ">="]
     single_ops    = ["=", "+", "-", "*", "/"]
+    
+    if filename.endswith("-test.v") or filename.endswith("-test-cases.v"):
+        multi_ops.append("+=")
 
     for i in range(line_range[0], line_range[1]):
 
-        line = lines[i].rstrip()
+        line = strip_inline_comment(lines[i]).rstrip()
 
         if line.strip() == "":
             continue
 
         if line.strip().startswith("//"):
+            continue
+        
+        if line.strip().startswith('`'):
             continue
 
         # Crammed operators
@@ -169,6 +194,7 @@ def horizontal_white_space_check(lines, line_range):
             if op in line and (" " + op + " ") not in line:
                 print("Warning (2.4): Line " + str(i + 1) +
                       " has insufficient horizontal whitespace\n")
+                warning_counts["2.4"] += 1
                 break
         else:
             # Check single-character operators.
@@ -179,15 +205,23 @@ def horizontal_white_space_check(lines, line_range):
                     if (" " + op + " ") not in line:
                         print("Warning (2.4): Line " + str(i + 1) +
                               " has insufficient horizontal whitespace\n")
+                        warning_counts["2.4"] += 1
                         break
 
         # Check for crammed gate wires
         stripped = line.lstrip()
+        if stripped.startswith(("wire", "input", "output", "logic")):
+            decl = stripped.split("=", 1)[0]
+            if "," in decl and ", " not in decl:
+                print("Warning (2.4): Line " + str(i + 1) +
+                      " has crammed-together wire declarations\n")
+                warning_counts["2.4"] += 1
         for gate in gate_keywords:
             if stripped.startswith(gate + "(") or stripped.startswith(gate + " ("):
                 if "," in stripped and ", " not in stripped:
                     print("Warning (2.4): Line " + str(i + 1) +
                           " has crammed-together gate wires\n")
+                    warning_counts["2.4"] += 1
                 break
 
 # ------------------------------- #
@@ -201,7 +235,7 @@ def port_and_wire_name_check(lines):
 
     for i in range(0, len(lines)):
         
-        line = lines[i].strip()
+        line = strip_inline_comment(lines[i]).strip()
 
         if line == "":
             continue
@@ -256,7 +290,7 @@ def port_and_wire_name_check(lines):
             if hasUpper:
                 print("Warning (3.1): Line " + str(i + 1) +
                       " uses non-snake-case name '" + name + "'\n")
-
+                warning_counts["3.1"] += 1
                 continue
 
             # Multiple words should be separated by underscores,
@@ -265,6 +299,7 @@ def port_and_wire_name_check(lines):
                 print("Warning (3.1): Line " + str(i + 1) +
                       " signal name '" + name +
                       "' may contain multiple words without underscores\n")
+                warning_counts["3.1"] += 1
 
 # Convention 3.2: Module Names
 def module_name_check(lines):
@@ -293,6 +328,7 @@ def module_name_check(lines):
             print("Warning (3.2): Line " + str(i + 1) +
                   " module name '" + module_name +
                   "' has too many underscores\n")
+            warning_counts["3.2"] += 1
             continue
 
         base = name_parts[0]
@@ -302,6 +338,7 @@ def module_name_check(lines):
             print("Warning (3.2): Line " + str(i + 1) +
                   " module name '" + module_name +
                   "' should start with an uppercase letter\n")
+            warning_counts["3.2"] += 1
 
         # If there is a suffix, last part should be GL or RTL
         if len(name_parts) >= 2:
@@ -310,6 +347,7 @@ def module_name_check(lines):
                 print("Warning (3.2): Line " + str(i + 1) +
                       " module name '" + module_name +
                       "' should end with suffix GL or RTL\n")
+                warning_counts["3.2"] += 1
 
         # If there are 3 parts, middle should look like a bitwidth (e.g., 8b, 32b, 2x16b)
         if len(name_parts) == 3:
@@ -325,6 +363,7 @@ def module_name_check(lines):
                 print("Warning (3.2): Line " + str(i + 1) +
                       " module name '" + module_name +
                       "' has unexpected bitwidth suffix '" + mid + "'\n")
+                warning_counts["3.2"] += 1
 
 # Convention 3.3: Module Instance Names
 def module_instance_name_check(lines, line_range):
@@ -394,6 +433,7 @@ def module_instance_name_check(lines, line_range):
                 print("Warning (3.3): Line " + str(i + 1) +
                       " module instance name '" + instance_name +
                       "' should use snake case\n")
+                warning_counts["3.3"] += 1
                 break
             break
 
@@ -402,6 +442,7 @@ def module_instance_name_check(lines, line_range):
             print("Warning (3.3): Line " + str(i + 1) +
                   " module instance name '" + instance_name +
                   "' should use snake_case\n")
+            warning_counts["3.3"] += 1
             
 # ------------------------------- #
 # Convention 4.X
@@ -423,7 +464,7 @@ def gl_allowable_contruct_check(lines, line_range):
     for i in range(line_range[0], line_range[1]):
 
         raw = lines[i]
-        line = raw.strip()
+        line = strip_inline_comment(raw).strip()
 
         if line == "":
             continue
@@ -439,6 +480,7 @@ def gl_allowable_contruct_check(lines, line_range):
             if token in line:
                 print("Warning (4.1): Line " + str(i + 1) +
                       " has a disallowed GL construct ('" + token + "')\n")
+                warning_counts["4.1"] += 1
                 break
 
 
@@ -448,6 +490,7 @@ def gl_allowable_contruct_check(lines, line_range):
                 if op in line:
                     print("Warning (4.1): Line " + str(i + 1) +
                           " assign is doing computation (operator '" + op + "')\n")
+                    warning_counts["4.1"] += 1
                     break
 
 # Convention 4.2: GL Signal Decleration
@@ -477,6 +520,7 @@ def gl_signal_decleration(lines, line_range):
         if first_word == "wire":
 
             rest = line[len("wire"):].strip()
+            rest = rest.split("=", 1)[0].strip()
 
             # If first non-space character is not '[' but we see '[' later,
             # then it's an unpacked array like: wire x [8];
@@ -486,6 +530,7 @@ def gl_signal_decleration(lines, line_range):
                 if not rest.startswith("["):
                     print("Warning (4.2): Line " + str(i + 1) +
                           " uses incorrect indexing")
+                    warning_counts["4.2"] += 1
                 else:
                     # Check format [N:0]
                     left  = rest.find("[")
@@ -497,6 +542,7 @@ def gl_signal_decleration(lines, line_range):
                         if ":" not in inside:
                             print("Warning (4.2): Line " + str(i + 1) +
                                   " uses incorrect indexing [" + inside + "]\n")
+                            warning_counts["4.2"] += 1
                         else:
                             nums = inside.split(":")
                             if len(nums) == 2:
@@ -506,6 +552,7 @@ def gl_signal_decleration(lines, line_range):
                                 if lsb != "0":
                                     print("Warning (4.2): Line " + str(i + 1) +
                                           " uses incorrect indexing [" + inside + "]\n")
+                                    warning_counts["4.2"] += 1
 
 # Convention 4.3: Primitive Gate Instantiation Check
 def primitive_gate_instantiation_check(lines, line_range):
@@ -565,6 +612,7 @@ def primitive_gate_instantiation_check(lines, line_range):
             if bad_spacing:
                 print("Warning (4.3): Line " + str(i + 1) +
                       " has insufficient horizontal whitespace between gate wires\n")
+                warning_counts["4.3"] += 1
 
             # If space is used after '(' then it should also be used before ')'
             # (and vice versa) to keep spacing consistent.
@@ -573,6 +621,7 @@ def primitive_gate_instantiation_check(lines, line_range):
             if has_space_after_open != has_space_before_close:
                 print("Warning (4.3): Line " + str(i + 1) +
                       " has inconsistent whitespace around parentheses\n")
+                warning_counts["4.3"] += 1
 
         i = j + 1
 
@@ -622,6 +671,7 @@ def gl_literal_check(lines, line_range):
                 print("Warning (4.4): Line " + str(i + 1) +
                       " uses unsized literal '" + token +
                       "'; specify bitwidth\n")
+                warning_counts["4.4"] += 1
                 continue
 
             # For long binary literals, recommend underscores for readability.
@@ -644,6 +694,7 @@ def gl_literal_check(lines, line_range):
                 print("Warning (4.4): Line " + str(i + 1) +
                       " long binary literal '" + token +
                       "' should use underscores for readability\n")
+                warning_counts["4.4"] += 1
 
 # Convention 4.5: GL Assign Statement Check
 def gl_assign_statement_check(lines, line_range):
@@ -656,12 +707,14 @@ def gl_assign_statement_check(lines, line_range):
         if line.startswith("wire") and "=" in line:
             print("Warning (4.5): Line " + str(i + 1) +
                   " should not declare and assign a wire in one statement\n")
+            warning_counts["4.5"] += 1
 
         # Assign statements should not use concatenation.
         if line.startswith("assign"):
             if "{" in line or "}" in line:
                 print("Warning (4.5): Line " + str(i + 1) +
                       " uses concatenation in assign; write explicit bit-level assignments\n")
+                warning_counts["4.5"] += 1
 
 # Convention 4.6: GL Module Definition Check
 def gl_module_definition_check(lines):
@@ -681,10 +734,12 @@ def gl_module_definition_check(lines):
         if len(parts) >= 2 and not parts[1].endswith("_GL"):
             print("Warning (4.6): Line " + str(i + 1) +
                   " GL module name '" + parts[1] + "' should end with '_GL'\n")
+            warning_counts["4.6"] += 1
 
         if "(" in line:
             print("Warning (4.6): Line " + str(i + 1) +
                   " module opening parenthesis should be on its own line\n")
+            warning_counts["4.6"] += 1
 
         j = i + 1
         while j < len(lines) and lines[j].split("//")[0].strip() == "":
@@ -692,6 +747,7 @@ def gl_module_definition_check(lines):
         if j >= len(lines) or lines[j].split("//")[0].strip() != "(":
             print("Warning (4.6): Line " + str(i + 1) +
                   " expected '(' on its own line after module name\n")
+            warning_counts["4.6"] += 1
             i = i + 1
             continue
 
@@ -709,22 +765,26 @@ def gl_module_definition_check(lines):
                 if stripped != ");":
                     print("Warning (4.6): Line " + str(j + 1) +
                           " module closing line should be ');'\n")
+                    warning_counts["4.6"] += 1
                 break
 
             if len(raw) - len(raw.lstrip(" ")) != 2:
                 print("Warning (4.6): Line " + str(j + 1) +
                       " port declaration should be indented by two spaces\n")
+                warning_counts["4.6"] += 1
 
             tokens = stripped.rstrip(",").split()
             if len(tokens) < 3 or tokens[0] not in ["input", "output"] or "wire" not in tokens:
                 print("Warning (4.6): Line " + str(j + 1) +
                       " malformed port declaration\n")
+                warning_counts["4.6"] += 1
                 j = j + 1
                 continue
 
             if stripped.count(",") > 1:
                 print("Warning (4.6): Line " + str(j + 1) +
                       " should declare one port per line\n")
+                warning_counts["4.6"] += 1
 
             curr_wire_col = raw.find("wire")
             if wire_col == -1:
@@ -732,6 +792,7 @@ def gl_module_definition_check(lines):
             elif curr_wire_col != wire_col:
                 print("Warning (4.6): Line " + str(j + 1) +
                       " wire keywords are not vertically aligned\n")
+                warning_counts["4.6"] += 1
 
             port_name = tokens[-1]
             curr_name_col = raw.rfind(port_name)
@@ -740,6 +801,7 @@ def gl_module_definition_check(lines):
             elif curr_name_col != name_col:
                 print("Warning (4.6): Line " + str(j + 1) +
                       " port names are not vertically aligned\n")
+                warning_counts["4.6"] += 1
 
             j = j + 1
 
@@ -748,6 +810,7 @@ def gl_module_definition_check(lines):
     if module_count > 1:
         print("Warning (4.6): File contains " + str(module_count) +
               " module definitions; expected one top-level GL module\n")
+        warning_counts["4.6"] += 1
 
 # Convention 4.7: GL Module Instantiation Check
 def gl_module_instantiation_check(lines, line_range):
@@ -778,6 +841,7 @@ def gl_module_instantiation_check(lines, line_range):
         if not module_type.endswith("_GL"):
             print("Warning (4.7): Line " + str(i + 1) +
                   " GL design should only instantiate _GL modules\n")
+            warning_counts["4.7"] += 1
 
         base_indent = len(raw) - len(raw.lstrip(" "))
         expected_port_indent = base_indent + 2
@@ -785,6 +849,7 @@ def gl_module_instantiation_check(lines, line_range):
         if "(" in line:
             print("Warning (4.7): Line " + str(i + 1) +
                   " opening parenthesis should be on its own line\n")
+            warning_counts["4.7"] += 1
 
         j = i + 1
         while j < line_range[1] and lines[j].split("//")[0].strip() == "":
@@ -792,6 +857,7 @@ def gl_module_instantiation_check(lines, line_range):
         if j >= line_range[1] or lines[j].split("//")[0].strip() != "(":
             print("Warning (4.7): Line " + str(i + 1) +
                   " expected '(' on its own line after module instantiation\n")
+            warning_counts["4.7"] += 1
             i = i + 1
             continue
 
@@ -808,15 +874,18 @@ def gl_module_instantiation_check(lines, line_range):
                 if port_stripped != ");":
                     print("Warning (4.7): Line " + str(k + 1) +
                           " closing parenthesis should be on its own line as ');'\n")
+                    warning_counts["4.7"] += 1
                 break
 
             if len(port_raw) - len(port_raw.lstrip(" ")) != expected_port_indent:
                 print("Warning (4.7): Line " + str(k + 1) +
                       " port connection should be indented by two spaces relative to instance line\n")
+                warning_counts["4.7"] += 1
 
             if not port_stripped.startswith(".") or port_stripped.count(",") > 1:
                 print("Warning (4.7): Line " + str(k + 1) +
                       " each port connection should be on a separate named-connection line\n")
+                warning_counts["4.7"] += 1
 
             curr_paren_col = port_raw.find("(")
             if curr_paren_col != -1:
@@ -846,6 +915,7 @@ def gl_module_instantiation_check(lines, line_range):
                 if col != target_col:
                     print("Warning (4.7): Line " + str(line_idx + 1) +
                           " child-port start parentheses are not vertically aligned\n")
+                    warning_counts["4.7"] += 1
 
         i = k + 1
 
@@ -868,6 +938,7 @@ def rtl_operator_check(lines, line_range):
             if line.startswith(gate + "(") or line.startswith(gate + " ("):
                 print("Warning (5.1): Line " + str(i + 1) +
                       " RTL should use operators/always blocks, not primitive gate instantiation\n")
+                warning_counts["5.1"] += 1
                 break
 
 # Convention 5.2: RTL Signal Declaration Check
@@ -882,6 +953,7 @@ def rtl_signal_declaration_check(lines, line_range):
         if line.startswith("wire") or line.startswith("reg"):
             print("Warning (5.2): Line " + str(i + 1) +
                   " RTL should use 'logic' only (not wire/reg)\n")
+            warning_counts["5.2"] += 1
 
 # ------------------------------- #
 # Convention 6.X
@@ -901,6 +973,7 @@ def comment_ascii_character_check(lines):
         except UnicodeEncodeError:
             print("Warning (6.1): Line " + str(i + 1) +
                   " comment contains non-ASCII characters\n")
+            warning_counts["6.1"] += 1
 
 # Convention 6.2: Comment Style Check
 def comment_style_check(lines, line_range):
@@ -912,6 +985,7 @@ def comment_style_check(lines, line_range):
         if "/*" in line or "*/" in line:
             print("Warning (6.2): Line " + str(i + 1) +
                   " should use '//' comments instead of block comments\n")
+            warning_counts["6.2"] += 1
 
         # If // is used, require a space immediately after it.
         comment_start = line.find("//")
@@ -922,9 +996,14 @@ def comment_style_check(lines, line_range):
         if after == "" or after == "\n":
             continue
 
+        allowed_immediate = ["-", "="]
+
         if not after.startswith(" "):
-            print("Warning (6.2): Line " + str(i + 1) +
-                  " should include a space after '//'\n")
+            first = after[0]
+            if first not in allowed_immediate:
+                print("Warning (6.2): Line " + str(i + 1) +
+                      " should include a space after '//'\n")
+                warning_counts["6.2"] += 1
 
 # Convention 6.6: Instructor Comment Check
 def instructor_comment_preservation_check(lines):
@@ -941,6 +1020,7 @@ def instructor_comment_preservation_check(lines):
             if marker in body:
                 print("Warning (6.6): Line " + str(i + 1) +
                       " still contains instructor comments\n")
+                warning_counts["6.6"] += 1
                 break
             break
 
@@ -959,6 +1039,27 @@ def run_rtl_checks(lines, line_range):
     rtl_operator_check(lines, line_range)
     rtl_signal_declaration_check(lines, line_range)
 
+def print_summary():
+    if not warning_counts:
+        print("No warnings found.")
+        return
+
+    print("==============================")
+    print("Warning Summary")
+    print("==============================")
+
+    total = 0
+    for rule in sorted(warning_counts.keys()):
+        count = warning_counts[rule]
+        print(f"Rule {rule}: {count}")
+        total += count
+    unique = len(warning_counts)
+
+    print("------------------------------")
+    print(f"Total Warnings: {total}")
+    print(f"Unique Warnins: {unique}")
+    print("==============================")
+
 def execute():
 
     line_range  = find_implementation_range(lines)
@@ -966,7 +1067,7 @@ def execute():
     line_length_check(lines, line_range)
     indentation_check(lines, line_range)
     vertical_white_space_check(lines, line_range)
-    horizontal_white_space_check(lines, line_range)
+    horizontal_white_space_check(lines, line_range, filename)
     port_and_wire_name_check(lines)
     module_name_check(lines)
     module_instance_name_check(lines, line_range)
@@ -977,11 +1078,17 @@ def execute():
         run_gl_checks(lines, line_range)
     elif design_type == "RTL":
         run_rtl_checks(lines, line_range)
+    elif filename.endswith("-test.v"):
+        pass
+    elif filename.endswith("-test-cases.v"):
+        pass
     else:
         print("Warning: Could not determine design type (expected _GL or _RTL module)\n")
 
     comment_ascii_character_check(lines)
     comment_style_check(lines, line_range)
     instructor_comment_preservation_check(lines)
+    
+    print_summary()
 
 execute()
