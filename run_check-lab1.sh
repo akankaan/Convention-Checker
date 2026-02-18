@@ -1,4 +1,4 @@
-#!/opt/homebrew/bin/bash
+#!/usr/bin/env bash
 
 if [ $# -ne 1 ]; then
   echo "Usage: ./run_check-lab1.sh <username>"
@@ -33,7 +33,8 @@ FILES=(
   test/DisplayUnopt_GL-test.v
 )
 
-declare -A SEEN_RULES
+# rule -> total count across all files
+declare -A RULE_COUNTS
 
 for file in "${FILES[@]}"; do
   FULL_PATH="${BASE_PATH}/${file}"
@@ -51,26 +52,44 @@ for file in "${FILES[@]}"; do
   echo "$OUTPUT" | tee -a "$DUMP_FILE"
   echo "" | tee -a "$DUMP_FILE"
 
-  while IFS= read -r rule; do
-    if [ -n "$rule" ]; then
-      SEEN_RULES["$rule"]=1
+  # Prefer the per-file "Warning Summary" counts, e.g.:
+  #   Rule 4.7: 3
+  # This correctly counts multiple occurrences within a file.
+  #
+  # If a checker ever prints multiple Rule lines, we sum them all.
+  while IFS= read -r line; do
+    rule="$(echo "$line" | awk '{print $2}' | tr -d ':')"
+    cnt="$(echo "$line"  | awk '{print $3}')"
+    if [[ -n "$rule" && "$cnt" =~ ^[0-9]+$ ]]; then
+      ((RULE_COUNTS["$rule"] += cnt))
     fi
-  done < <(echo "$OUTPUT" | awk '/^Rule[[:space:]]+[0-9]+\.[0-9]+:/{print $2}' | tr -d ':')
+  done < <(echo "$OUTPUT" | awk '/^Rule[[:space:]]+[0-9]+\.[0-9]+:[[:space:]]+[0-9]+/{print}')
 
 done
 
 echo "========================================" | tee -a "$DUMP_FILE"
-echo "Unique Warnings Across All Files" | tee -a "$DUMP_FILE"
+echo "Warnings Summary Across All Files" | tee -a "$DUMP_FILE"
 echo "========================================" | tee -a "$DUMP_FILE"
 
-if [ ${#SEEN_RULES[@]} -eq 0 ]; then
+if [ ${#RULE_COUNTS[@]} -eq 0 ]; then
   echo "(none)" | tee -a "$DUMP_FILE"
   echo "Total Unique Rules: 0" | tee -a "$DUMP_FILE"
+  echo "Total Warnings: 0" | tee -a "$DUMP_FILE"
   echo "========================================" | tee -a "$DUMP_FILE"
   exit 0
 fi
 
-printf "%s\n" "${!SEEN_RULES[@]}" | sort -V | tee -a "$DUMP_FILE"
+# print sorted rules
+mapfile -t sorted_rules < <(printf "%s\n" "${!RULE_COUNTS[@]}" | sort -V)
+
+total_warnings=0
+for rule in "${sorted_rules[@]}"; do
+  count="${RULE_COUNTS[$rule]}"
+  echo "$rule: $count" | tee -a "$DUMP_FILE"
+  total_warnings=$((total_warnings + count))
+done
+
 echo "----------------------------------------" | tee -a "$DUMP_FILE"
-echo "Total Unique Warnings: ${#SEEN_RULES[@]}" | tee -a "$DUMP_FILE"
+echo "Total Unique Rules: ${#RULE_COUNTS[@]}" | tee -a "$DUMP_FILE"
+echo "Total Warnings: $total_warnings" | tee -a "$DUMP_FILE"
 echo "========================================" | tee -a "$DUMP_FILE"
