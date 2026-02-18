@@ -212,10 +212,11 @@ def horizontal_white_space_check(lines, line_range, filename):
         stripped = line.lstrip()
         if stripped.startswith(("wire", "input", "output", "logic")):
             decl = stripped.split("=", 1)[0]
-            if "," in decl and ", " not in decl:
+            if re.search(r",\S", decl):
                 print("Warning (2.4): Line " + str(i + 1) +
                       " has crammed-together wire declarations\n")
                 warning_counts["2.4"] += 1
+
         for gate in gate_keywords:
             if stripped.startswith(gate + "(") or stripped.startswith(gate + " ("):
                 if "," in stripped and ", " not in stripped:

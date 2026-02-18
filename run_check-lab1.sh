@@ -24,6 +24,13 @@ FILES=(
   BinaryToSevenSegUnopt_GL.v
   DisplayOpt_GL.v
   DisplayUnopt_GL.v
+  test/BinaryToBinCodedDec_GL-test.v
+  test/BinaryToSevenSeg-test-cases.v
+  test/BinaryToSevenSegOpt_GL-test.v
+  test/BinaryToSevenSegUnopt_GL-test.v
+  test/Display-test-cases.v
+  test/DisplayOpt_GL-test.v
+  test/DisplayUnopt_GL-test.v
 )
 
 declare -A SEEN_RULES
