@@ -21,6 +21,12 @@ with open(filename, "r", encoding="utf-8") as f:
 def strip_inline_comment(raw_line: str) -> str:
     return raw_line.split("//", 1)[0].rstrip("\n")
 
+def strip_allowed_attrs(raw_line: str) -> str:
+    return re.sub(r'\(\*\s*keep\s*=\s*[01]\s*\*\)\s*', '', raw_line)
+
+def strip_for_parse(raw_line: str) -> str:
+    return strip_allowed_attrs(strip_inline_comment(raw_line))
+
 # Finds the line range where students write their code
 # based on "module" and "endmodule"
 def find_implementation_range(lines):
@@ -176,7 +182,7 @@ def horizontal_white_space_check(lines, line_range, filename):
 
     for i in range(line_range[0], line_range[1]):
 
-        line = strip_inline_comment(lines[i]).rstrip()
+        line = strip_for_parse(lines[i]).rstrip()
 
         if line.strip() == "":
             continue
@@ -216,7 +222,6 @@ def horizontal_white_space_check(lines, line_range, filename):
                 print("Warning (2.4): Line " + str(i + 1) +
                       " has crammed-together wire declarations\n")
                 warning_counts["2.4"] += 1
-
         for gate in gate_keywords:
             if stripped.startswith(gate + "(") or stripped.startswith(gate + " ("):
                 if "," in stripped and ", " not in stripped:
@@ -236,7 +241,7 @@ def port_and_wire_name_check(lines):
 
     for i in range(0, len(lines)):
         
-        line = strip_inline_comment(lines[i]).strip()
+        line = strip_for_parse(lines[i]).strip()
 
         if line == "":
             continue
@@ -439,7 +444,7 @@ def module_instance_name_check(lines, line_range):
             break
 
         # If the name is long and no underscores, it probably has multiple words 
-        if "_" not in instance_name and len(instance_name) > 8:
+        if "_" not in instance_name and len(instance_name) > 12:
             print("Warning (3.3): Line " + str(i + 1) +
                   " module instance name '" + instance_name +
                   "' should use snake_case\n")
@@ -465,7 +470,7 @@ def gl_allowable_contruct_check(lines, line_range):
     for i in range(line_range[0], line_range[1]):
 
         raw = lines[i]
-        line = strip_inline_comment(raw).strip()
+        line = strip_for_parse(raw).strip()
 
         if line == "":
             continue
@@ -615,15 +620,6 @@ def primitive_gate_instantiation_check(lines, line_range):
                       " has insufficient horizontal whitespace between gate wires\n")
                 warning_counts["4.3"] += 1
 
-            # If space is used after '(' then it should also be used before ')'
-            # (and vice versa) to keep spacing consistent.
-            has_space_after_open = len(inside) > 0 and inside[0] in [" ", "\t"]
-            has_space_before_close = len(inside) > 0 and inside[-1] in [" ", "\t"]
-            if has_space_after_open != has_space_before_close:
-                print("Warning (4.3): Line " + str(i + 1) +
-                      " has inconsistent whitespace around parentheses\n")
-                warning_counts["4.3"] += 1
-
         i = j + 1
 
 # Convention 4.4: GL Literal Check
@@ -756,7 +752,7 @@ def gl_module_definition_check(lines):
         name_col = -1
         j = j + 1
         while j < len(lines):
-            raw = lines[j].split("//")[0].rstrip("\n")
+            raw = strip_for_parse(lines[j]).rstrip("\n")
             stripped = raw.strip()
             if stripped == "":
                 j = j + 1
@@ -1045,9 +1041,9 @@ def print_summary():
         print("No warnings found.")
         return
 
-    print("==============================")
+    print("##############################")
     print("Warning Summary")
-    print("==============================")
+    print("##############################")
 
     total = 0
     for rule in sorted(warning_counts.keys()):
@@ -1056,10 +1052,10 @@ def print_summary():
         total += count
     unique = len(warning_counts)
 
-    print("------------------------------")
+    print("##############################")
     print(f"Total Warnings: {total}")
-    print(f"Unique Warnins: {unique}")
-    print("==============================")
+    print(f"Unique Warnings: {unique}")
+    print("##############################")
 
 def execute():
 
